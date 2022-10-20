@@ -1,2 +1,2 @@
-from .auth import SpotifyAuthorizationCode, SpotifyAuthorizationCodeException
-from .connection import SpotifyConnection
+
+from .connection import SpotifyAuthCodeConnection
