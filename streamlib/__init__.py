@@ -1,3 +1,3 @@
 
-from .connection import SpotifyAuthCodeConnection
+from .connection import SpotifyAuthCodeConnection, ConnectionObject
 from .cache import CacheHandler

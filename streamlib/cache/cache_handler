@@ -1,4 +1,0 @@
-
-class CacheHandler:
-    def __init__(self, folder="streamlib_cache"):
-        this.folder = folder

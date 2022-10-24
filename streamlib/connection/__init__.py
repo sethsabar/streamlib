@@ -1,2 +1,2 @@
 from .spotify_auth_code_connection import SpotifyAuthCodeConnection
-
+from .connection_object import ConnectionObject

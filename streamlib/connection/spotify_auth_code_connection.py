@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import random
 import string
 from requests import Session
 from urllib.parse import urlencode, urlparse, parse_qs
 from base64 import b64encode
 import warnings
+from ..cache import CacheHandler
 
 class SpotifyAuthCodeConnection:
 
@@ -25,20 +26,40 @@ class SpotifyAuthCodeConnection:
             client_id: str,
             client_secret: str,
             redirect_uri: str,
-            scope: list[str] = ALL_SCOPES):
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._redirect_uri = redirect_uri
-        self._scope = self._parse_scopes(scope)
-        self._session = Session()
-        self._access_token = None
-        self._refresh_token = None
-        self._access_token_expires = None
+            cache_handler: CacheHandler,
+            scope: list[str] = ALL_SCOPES,
+            ):
+        self._client_id: str = client_id
+        self._client_secret: str = client_secret
+        self._redirect_uri: str = redirect_uri
+        self._cache_handler: CacheHandler = cache_handler
+        self._scope: str = self._parse_scopes(scope)
+        self._session: Session = Session()
+        self._access_token: str = None
+        self._refresh_token: str = None
+        self._access_token_expires: datetime = None
+        if (self._cache_handler is None) or (not self._check_cache()):
+            self._prompt_user_login()
+
+    def _check_cache(self):
+        result = self._cache_handler._get_spotify_auth_code_connection(
+            self._client_id,
+            self._client_secret,
+            self._redirect_uri,
+            self._scope)
+        if result is not None:
+            self._access_token = result[0]
+            self._refresh_token = result[1]
+            self._access_token_expires = result[2]
+            return True
+        else:
+            return False
+
 
     def _parse_scopes(self, scope: list[str]):
         return " ".join(scope)
 
-    def _get_token(self, code):
+    def _get_token(self, code: str):
         payload = {
             'grant_type': 'authorization_code',
             'code': code,
@@ -69,6 +90,15 @@ class SpotifyAuthCodeConnection:
                 self._refresh_token = response['refresh_token']
                 self._access_token_expires = datetime.utcnow() + \
                 timedelta(seconds=response['expires_in'])
+        self._cache_handler._store_spotify_auth_code_connection(
+            self._client_id,
+            self._client_secret,
+            self._redirect_uri,
+            self._scope,
+            self._access_token,
+            self._refresh_token,
+            self._access_token_expires
+        )
 
 
     def _verify_credentials(self, uri: str, state: str):
