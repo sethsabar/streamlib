@@ -3,8 +3,8 @@ class Album:
     def __init__(
         self,
         name: str = None,
-        artists = None,
-        songs = None,
+        artists: list = None,
+        songs: list = None,
         album_type: str = None,
         spotify_id: str = None,
         release_date: str = None,

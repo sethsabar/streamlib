@@ -1,7 +1,10 @@
-from ..cache import CacheHandler
-from .spotify_auth import SpotifyAuthCode
-from .spotify_api import SpotifyAPI
-from ..objects import Song, Artist, Album
+from typing import Any, Collection
+from streamlib.cache.cache_handler import CacheHandler
+from streamlib.connection.spotify_auth import SpotifyAuthCode
+from streamlib.connection.spotify_api import SpotifyAPI
+from streamlib.objects.song import Song
+from streamlib.objects.artist import Artist
+from streamlib.objects.album import Album
 
 
 class ConnectionObject:
@@ -20,6 +23,8 @@ class ConnectionObject:
         self._spotify_auth = None
         self._spotify_connection = SpotifyAPI()
 
+    ## METHODS FOR INSTANTIATING API AUTHENTICATION ##
+    
     def spotify_auth_code(
             self,
             client_id: str,
@@ -67,6 +72,8 @@ class ConnectionObject:
                     scope,
                     check_cache,
                     update_cache)
+
+    ## METHODS FOR CREATING OBJECTS FROM APIs ##
 
     def spotify_get_song_by_id(self, id: str):
         """
@@ -119,3 +126,119 @@ class ConnectionObject:
         """
         return self._spotify_connection._get_saved_songs(
             self._spotify_auth._get_access_token())
+    
+    def spotify_save_songs_by_id(self, songs: Collection[str]) -> bool:
+        """
+        This method takes a list of Spotify song IDs and adds them to the 
+        logged in user's saved songs. On success True is returned
+    
+        params:
+
+        songs: a collection of Spotify song ids
+
+        returns:
+
+        True if successful
+        """
+        return self._spotify_connection._add_saved_songs(
+            list(songs),
+            self._spotify_auth._get_access_token())
+
+    ## METHODS FOR GETTING INFO ABOUT OBJECTS ##
+
+    def get_song_info(
+        self, 
+        song: Song, 
+        attr: Collection[str],
+        with_inference: bool = True) -> dict[str, Any]:
+        """
+        This method takes in a Song object and a Collection of attributes and 
+        returns a map from attribute name to attribute value. The valid 
+        attributes are:
+
+        name - get the name of the song
+        artists - get a list of Artist objects who wrote the song
+        album - get an Album object which the song is on
+        spotify_id - get the Spotify ID for the song
+        duration - get the duration of the song in milliseconds
+        explicit - get a boolean indicating if the song is explicit
+
+        params:
+
+        song: a Song object
+        attr: a list of attributes to retrieve
+        (optional) with_inference: a bool indicating whether the method should 
+        attempt to retrieve information not currently set in the object based 
+        on the information that is currently available. True by default
+
+        returns:
+
+        a map from attribute name to attribute value for the Song object
+        """
+        return_map = {}
+        to_get = set()
+        if 'name' in attr:
+            if song._name is None:
+                to_get.add('name')
+            else:
+                return_map['name'] = song._name
+        if 'artists' in attr:
+            if song._artists is None:
+                to_get.add('artists')
+            else:
+                return_map['artists'] = song._artists
+        if 'album' in attr:
+            if song._album is None:
+                to_get.add('album')
+            else:
+                return_map['album'] = song._album
+        if 'spotify_id' in attr:
+            if song._album is None:
+                to_get.add('spotify_id')
+            else:
+                return_map['spotify_id'] = song._spotify_id
+        if 'duration' in attr:
+            if song._album is None:
+                to_get.add('duration')
+            else:
+                return_map['duration'] = song._duration
+        if 'explicit' in attr:
+            if song._album is None:
+                to_get.add('explicit')
+            else:
+                return_map['explict'] = song._explicit
+        
+        if not with_inference:
+            for item in to_get:
+                return_map[item] = None
+        elif (len(to_get) > 0) and (song._spotify_id is not None):
+            copy: Song = self._spotify_connection._get_song_by_id(
+                song._spotify_id, 
+                self._spotify_auth._get_access_token())
+            if 'name' in to_get:
+                song._name = copy._name
+                return_map['name'] = song._name
+            if 'artists' in to_get:
+                song._artists = copy._artists
+                return_map['artists'] = song._artists
+            if 'album' in to_get:
+                song._album = copy._album
+                return_map['album'] = song._album
+            if 'spotify_id' in to_get:
+                song._spotify_id = copy._spotify_id
+                return_map['spotify_id'] = song._spotify_id
+            if 'duration' in to_get:
+                song._duration = copy._duration
+                return_map['duration'] = song._duration
+            if 'explicit' in to_get:
+                song._explicit = copy._explicit
+                return_map['explicit'] = song._explicit
+        else:
+            for item in to_get:
+                return_map[item] = None
+        
+        return return_map
+
+    
+            
+

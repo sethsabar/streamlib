@@ -7,22 +7,21 @@ from base64 import b64encode
 import warnings
 from ..cache import CacheHandler
 
+# a list of all valid scopes the Spotify API allows. Read more here:
+    # https://developer.spotify.com/documentation/general/guides/authorization/scopes/
+ALL_SCOPES = ["ugc-image-upload", "user-read-playback-state",
+            "user-modify-playback-state", "user-read-currently-playing",
+            "app-remote-control", "streaming", "playlist-read-private",
+            "playlist-read-collaborative", "playlist-modify-private",
+            "playlist-modify-public", "user-follow-modify",
+            "user-follow-read",
+            "user-read-playback-position", "user-top-read",
+            "user-read-recently-played", "user-library-modify",
+            "user-library-read", "user-read-email", "user-read-private"]
+
+BASE_URL = "https://accounts.spotify.com/api/token"
 
 class SpotifyAuthCode:
-
-    # a list of all valid scopes the Spotify API allows. Read more here:
-    # https://developer.spotify.com/documentation/general/guides/authorization/scopes/
-    ALL_SCOPES = ["ugc-image-upload", "user-read-playback-state",
-                  "user-modify-playback-state", "user-read-currently-playing",
-                  "app-remote-control", "streaming", "playlist-read-private",
-                  "playlist-read-collaborative", "playlist-modify-private",
-                  "playlist-modify-public", "user-follow-modify",
-                  "user-follow-read",
-                  "user-read-playback-position", "user-top-read",
-                  "user-read-recently-played", "user-library-modify",
-                  "user-library-read", "user-read-email", "user-read-private"]
-
-    BASE_URL = "https://accounts.spotify.com/api/token"
 
     def __init__(
             self,

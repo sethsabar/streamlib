@@ -1,6 +1,6 @@
+from json import JSONDecodeError
 from requests import Session
 from ..objects import Song, Artist, Album
-
 
 class SpotifyAPI:
 
@@ -12,18 +12,20 @@ class SpotifyAPI:
         self._session = Session()
         self._base_url = "https://api.spotify.com/v1/"
     
+    def _gen_header(self, token: str) -> dict[str, str]:
+        return {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json',
+        }
+    
     def _get_song_by_id(self, id: str, token: str) -> Song:
         """
         given a song id and an access token, calls the API and with the 
         returned JSON creates a Song object 
         """
-        headers = {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-        }
         res = self._session.get(
             url="{}tracks/{}".format(self._base_url, id),
-            headers=headers).json()
+            headers=self._gen_header(token)).json()
         
         if 'error' in res:
             message = "Spotify API failed to retrieve song with id " + str(id) \
@@ -53,7 +55,7 @@ class SpotifyAPI:
             spotify_id=json['id'],
             duration=json['duration_ms'],
             explicit=json['explicit'],
-            albums=[album],
+            album=album,
             artists=artists,
         )
 
@@ -67,13 +69,9 @@ class SpotifyAPI:
         """
         if len(ids) == 0:
             return []
-        headers = {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-        }
         res = self._session.get(
             url="{}tracks/?ids={}".format(self._base_url, ','.join(ids)),
-            headers=headers).json()
+            headers=self._gen_header(token)).json()
         
         if 'error' in res:
             message = "Spotify API failed to retrieve songs with ids " \
@@ -86,13 +84,9 @@ class SpotifyAPI:
         """
         gets saved songs for Spotify user
         """
-        headers = {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-        }
         res = self._session.get(
             url="{}me/tracks".format(self._base_url),
-            headers=headers).json()
+            headers=self._gen_header(token)).json()
         
         if 'error' in res:
             message = "Spotify API failed to retrieve song with id " + str(id) \
@@ -105,6 +99,23 @@ class SpotifyAPI:
                 ret_list.append(self._create_songs(res['items']))
                 res = self._session.get(
                     url=next,
-                    headers=headers).json()
+                    headers=self._gen_header(token)).json()
             return ret_list
+
+    def _add_saved_songs(self, songs: list[str], token: str) -> bool:
+        """
+        saves songs on spotify
+        """
+        res = self._session.put(
+            url="{}me/tracks/?ids={}".format(self._base_url, ','.join(songs)),
+            headers=self._gen_header(token))
+        
+        try:
+            if 'error' in res.json():
+                message = "Spotify API failed to save songs with ids " \
+                + str(songs) + \
+                " because of the following error: " + str(res['error'])
+                raise RuntimeError(message)
+        except JSONDecodeError:
+            return True
 
