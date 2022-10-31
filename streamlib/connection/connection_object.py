@@ -1,7 +1,7 @@
-from streamlib.cache import cache_handler
 from ..cache import CacheHandler
-from .spotify_auth_code import SpotifyAuthCode
+from .spotify_auth import SpotifyAuthCode
 from .spotify_api import SpotifyAPI
+from ..objects import Song, Artist, Album
 
 
 class ConnectionObject:
@@ -79,7 +79,43 @@ class ConnectionObject:
         params:
 
         id: the song id
+
+        returns:
+
+        a Song object
         """
         return self._spotify_connection._get_song_by_id(
             id, 
-            self._spotify_auth._access_token)
+            self._spotify_auth._get_access_token())
+
+    def spotify_get_songs_by_id(self, ids: list[str]):
+        """
+        This method takes a list of Spotify Song IDs and returns a list of Song 
+        objects for those songs. Song IDs can be found be getting a shareable link for a Spotify 
+        song. Ex:
+        https://open.spotify.com/track/xxx?si=yyy
+        has the ID xxx
+
+        params:
+
+        ids: the list of song ids
+
+        returns:
+
+        a list of Song objects
+        """
+        return self._spotify_connection._get_songs_by_id(
+            ids, 
+            self._spotify_auth._get_access_token())
+
+    def spotify_get_saved_songs(self) -> list[Song]:
+        """
+        This method takes no parameters and returns a list of Song objects the 
+        user has saved on Spotify
+    
+        returns:
+
+        a list of Song objects the user has saved on Spotify
+        """
+        return self._spotify_connection._get_saved_songs(
+            self._spotify_auth._get_access_token())

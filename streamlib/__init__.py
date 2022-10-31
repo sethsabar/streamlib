@@ -1,3 +1,3 @@
 
-from .connection import SpotifyAuthCode, ConnectionObject
-from .cache import CacheHandler
+from .connection import ConnectionObject
+from .objects import Song, Artist, Album

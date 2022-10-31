@@ -22,6 +22,8 @@ class SpotifyAuthCode:
                   "user-read-recently-played", "user-library-modify",
                   "user-library-read", "user-read-email", "user-read-private"]
 
+    BASE_URL = "https://accounts.spotify.com/api/token"
+
     def __init__(
             self,
             client_id: str,
@@ -48,7 +50,7 @@ class SpotifyAuthCode:
             if (not check_cache) or (not self._check_cache()):
                 self._prompt_user_login()
 
-    def _check_cache(self):
+    def _check_cache(self) -> bool:
         """
         checks with the CacheHandler if the credentials associated with the 
         client info already exist in the cache
@@ -67,13 +69,13 @@ class SpotifyAuthCode:
         else:
             return False
 
-    def _parse_scopes(self, scope: list[str]):
+    def _parse_scopes(self, scope: list[str]) -> str:
         """
         parses the list of scopes into a space seperated string of scopes
         """
         return " ".join(scope)
 
-    def _get_token(self, code: str):
+    def _get_token(self, code: str) -> None:
         """
         gets the access token for Spotify API calls
         """
@@ -92,39 +94,13 @@ class SpotifyAuthCode:
         }
 
         response = self._session.post(
-            url='https://accounts.spotify.com/api/token',
+            url=self.BASE_URL,
             params=payload,
             headers=headers
         ).json()
+        self._get_access_token_helper(headers, response)  
 
-        if 'error' in response:
-            error_message = \
-                "Retrieving a token from the Spotify API failed with the " + \
-                "following error: {}".format(response['error'])
-            raise SpotifyAuthCodeException(error_message)
-        else:
-            new_scopes = self._parse_scopes(response['scope'])
-            if not (set(new_scopes) == set(self._scope)):
-                warnings.warn(
-                    "Scopes allowed by Spotify don't match inputted scopes")
-            else:
-                self._access_token = response['access_token']
-                self._refresh_token = response['refresh_token']
-                self._access_token_expires = datetime.utcnow() + \
-                    timedelta(seconds=response['expires_in'])
-        
-        if self._update_cache:
-            self._cache_handler._store_spotify_auth_code_connection(
-                self._client_id,
-                self._client_secret,
-                self._redirect_uri,
-                self._scope,
-                self._access_token,
-                self._refresh_token,
-                self._access_token_expires
-            )
-
-    def _verify_credentials(self, uri: str, state: str):
+    def _verify_credentials(self, uri: str, state: str) -> None:
         """
         takes the uri Spotify redirected the user to after verifying permissions
         and the state given in the Spotify call and verifies that the uri is
@@ -135,17 +111,17 @@ class SpotifyAuthCode:
             error_message = \
                 "Spotify Authentication Failed with " + \
                 "the following error: " + parsed_query['error'][0]
-            raise SpotifyAuthCodeException(error_message)
+            raise RuntimeError(error_message)
         elif not (parsed_query['state'][0] == state):
             error_message = \
                 "Returned state does not " + \
                 "match sent state. Spotify account may be comprimised."
-            raise SpotifyAuthCodeException(error_message)
+            raise RuntimeError(error_message)
         else:
             self._get_token(parsed_query['code'][0])
 
     
-    def _prompt_user_login(self):
+    def _prompt_user_login(self) -> None:
         """
         prompts the user to login and verify the API permissions
         """
@@ -166,22 +142,59 @@ class SpotifyAuthCode:
             input("Then copy-paste the URI Spotify " +
                   "redirected you to and enter it here: "), state)
 
-    def _get_access_token(self):
+    def _get_access_token_helper(self, payload, headers) -> None:
+        """
+        helper method which takes a payload and headers to get an access token,
+        and parses the response to set fields in the object
+        """
+        response = self._session.post(
+                url=self.BASE_URL, 
+                params=payload,
+                headers=headers).json()
+        if 'error' in response:
+            error_message = \
+            "Retrieving a token from the Spotify API failed with the " + \
+            "following error: {}".format(response['error'])
+            raise RuntimeError(error_message)
+        else:
+            new_scopes = self._parse_scopes(response['scope'])
+            if not (set(new_scopes) == set(self._scope)):
+                warnings.warn(
+                    "Scopes allowed by Spotify don't match inputted scopes")
+                self._scope = new_scopes
+            else:
+                self._access_token = response['access_token']
+                if 'refresh_token' in response:
+                    self._refresh_token = response['refresh_token']
+                self._access_token_expires = datetime.utcnow() + \
+                    timedelta(seconds=response['expires_in'])
+        if self._update_cache:
+            self._cache_handler._store_spotify_auth_code_connection(
+                self._client_id,
+                self._client_secret,
+                self._redirect_uri,
+                self._scope,
+                self._access_token,
+                self._refresh_token,
+                self._access_token_expires
+            )
+
+    def _get_access_token(self) -> str:
         """
         gets the access token if it hasn't yet expried, otherwise uses the 
         refresh token to get a new access token
         """
         if self._access_token_expires < datetime.utcnow():
-            return self._access_token
-        else:
-            # todo, write function to use refresh token
-        
-
-
-class SpotifyAuthCodeException(Exception):
-    def __init__(self, message):
-        """
-        constructor for SpotifyAuthCodeException, this should not be access 
-        directly
-        """
-        super().__init__(message)
+            payload = {
+                'grant_type':'refresh_token',
+                'refresh_token': self._refresh_token,
+            }
+            headers = {
+            'Authorization': 'Basic %s' %
+            b64encode('{}:{}'.format(self._client_id,
+                                     self._client_secret).
+                      encode('ascii')).decode('ascii'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+            }
+            self._get_access_token_helper(payload, headers)
+        return self._access_token
