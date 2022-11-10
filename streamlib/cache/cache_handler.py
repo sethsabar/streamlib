@@ -2,7 +2,6 @@ from os import mkdir
 from os.path import isdir
 import csv
 
-
 class CacheHandler:
 
     def __init__(self, folder):

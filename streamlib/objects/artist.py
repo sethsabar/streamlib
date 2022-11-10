@@ -5,6 +5,8 @@ class Artist:
         self,
         name: str = None,
         spotify_id: str = None,
+        genres: list[str] = None
     ):
-        self._name = name
-        self._spotify_id = spotify_id
+        self.name = name
+        self.spotify_id = spotify_id
+        self.genres = genres

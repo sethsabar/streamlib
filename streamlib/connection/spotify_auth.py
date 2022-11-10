@@ -147,7 +147,7 @@ class SpotifyAuthCode:
         and parses the response to set fields in the object
         """
         response = self._session.post(
-                url=self.BASE_URL, 
+                url=BASE_URL, 
                 params=payload,
                 headers=headers).json()
         if 'error' in response:

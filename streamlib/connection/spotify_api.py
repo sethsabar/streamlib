@@ -33,6 +33,16 @@ class SpotifyAPI:
             raise RuntimeError(message)
         else:
             return self._create_song(res)
+    
+    def _parse_album_release(self, date: str, precision: str) -> \
+    tuple[int, int, int]:
+        date_list = date.split('-')
+        if precision == 'year':
+            return int(date_list[0]), None, None
+        elif precision == 'month':
+            return int(date_list[0]), int(date_list[1]), None 
+        else:
+            return int(date_list[0]), int(date_list[1]), int(date_list[2]) 
 
     def _create_song(self, json) -> Song:
         album_obj = json['album']
@@ -43,20 +53,28 @@ class SpotifyAPI:
                 name=a['name'],
                 spotify_id=a['id']
             ))
+        year, month, day = self._parse_album_release(
+            album_obj['release_date'], 
+            album_obj['release_date_precision'])
         album = Album(
             name=album_obj['name'],
+            artists=artists_list,
+            num_songs=album_obj['total_tracks'],
             spotify_id=album_obj['id'],
-            release_date=album_obj['release_date'],
-            release_date_precision=album_obj['release_date_precision'],
-            album_type=album_obj['type']
+            release_year=year,
+            release_month=month,
+            release_day=day,
+            spotify_album_type=album_obj['type']
         )
         return Song(
             name=json['name'],
             spotify_id=json['id'],
-            duration=json['duration_ms'],
+            duration_ms=json['duration_ms'],
             explicit=json['explicit'],
             album=album,
             artists=artists,
+            song_number=json['disc_number'],
+            spotify_is_local=json['is_local']
         )
 
     def _create_songs(self, json):
@@ -119,3 +137,68 @@ class SpotifyAPI:
         except JSONDecodeError:
             return True
 
+    def _remove_saved_songs(self, songs: list[str], token: str) -> bool:
+        """
+        removes saved songs on spotify
+        """
+        res = self._session.delete(
+            url="{}me/tracks/?ids={}".format(self._base_url, ','.join(songs)),
+            headers=self._gen_header(token))
+        
+        try:
+            if 'error' in res.json():
+                message = "Spotify API failed to remove saved songs with ids " \
+                + str(songs) + \
+                " because of the following error: " + str(res['error'])
+                raise RuntimeError(message)
+        except JSONDecodeError:
+            return True
+
+    def _check_saved_songs(self, songs: list[str], token: str) -> bool:
+        """
+        checks saved songs on spotify
+        """
+        res = self._session.get(
+            url="{}me/tracks/contains/?ids={}".format(self._base_url, 
+            ','.join(songs)),
+            headers=self._gen_header(token)).json()
+        
+        if 'error' in res:
+            message = "Spotify API failed to remove saved songs with ids " \
+            + str(songs) + \
+            " because of the following error: " + str(res['error'])
+            raise RuntimeError(message)
+        else:
+            return res
+    
+    def _search_song(self, song: Song, token: str) -> bool:
+        """
+        searchs for a song with avaialable info
+        """
+        if song.name is None:
+            return song
+        else:
+            query_string = 'q=track:{}'.format(song.name, song.name)
+            if song.artists is not None and len(song.artists) > 0 and \
+            song.artists[0].name is not None:
+                query_string += ' artist:{}'.format(song.artists[0].name)
+            if song.album is not None and song.album.name is not None:
+                query_string += ' album:{}'.format(song.album.name)
+            
+            query_string += '&type=track&limit=1'
+
+            res = self._session.get(
+            url="{}search?{}".format(self._base_url, query_string),
+            headers=self._gen_header(token)).json()
+
+            if 'error' in res:
+                message = "Spotify API failed to populate song " \
+                + song.name + \
+                " because of the following error: " + str(res['error'])
+                raise RuntimeError(message)
+            else:
+                if len(res['tracks']['items']) == 0:
+                    return song
+                else:
+                    return self._create_song(res['tracks']['items'][0])
+            
